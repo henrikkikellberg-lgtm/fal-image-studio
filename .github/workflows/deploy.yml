@@ -1,0 +1,28 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # mahdollistaa manuaalisen ajon GitHub UI:sta
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy fal-image-studio
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via Wrangler (+ synkkaa secretit)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          command: deploy
+          # Pushaa nämä Worker-secreteiksi joka deployssa (luetaan alla env:stä)
+          secrets: |
+            FAL_KEY
+            UI_TOKEN
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          UI_TOKEN: ${{ secrets.UI_TOKEN }}

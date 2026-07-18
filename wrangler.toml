@@ -1,0 +1,7 @@
+name = "fal-image-studio"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Secretit asetetaan komennoilla (EI tähän tiedostoon):
+#   wrangler secret put FAL_KEY
+#   wrangler secret put UI_TOKEN

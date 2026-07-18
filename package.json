@@ -1,0 +1,13 @@
+{
+  "name": "fal-image-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "fal.ai image generation on Cloudflare Workers, bearer-token protected",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
