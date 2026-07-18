@@ -77,15 +77,23 @@ npx wrangler dev
 
 ## Mallit
 
-| Malli | Hinta/kuva | Käyttö |
-|---|---|---|
-| `fal-ai/flux/schnell` | ~0,003 $ | nopea vedos, oletus |
-| `fal-ai/flux/dev` | ~0,025 $ | tasapaino |
-| `fal-ai/flux-pro/v1.1` | ~0,04 $ | paras laatu, julkaisuun |
+| Malli | Hinta/kuva | Parametri | Käyttö |
+|---|---|---|---|
+| `fal-ai/nano-banana-pro` | ~0,15 $ | `aspect_ratio` + `resolution` | **paras laatu** (Gemini 3 Pro Image), paras tekstinrenderöinti, julkaisuun |
+| `fal-ai/flux-pro/v1.1` | ~0,04 $ | `image_size` | flux-perheen paras |
+| `fal-ai/nano-banana` | ~0,04 $ | `aspect_ratio` | nopeampi/halvempi Gemini |
+| `fal-ai/flux/dev` | ~0,025 $ | `image_size` | tasapaino |
+| `fal-ai/flux/schnell` | ~0,003 $ | `image_size` | nopea vedos, oletus |
 
-Kaikki kolme jakavat saman `image_size`-skeeman. Muita malleja (esim.
-`nano-banana`) voi lisätä `MODELS`-objektiin `src/index.js`:ssä, mutta tarkista
-niiden parametrit — osalla on eri skeema kuin FLUX-perheellä.
+**Parametriadapteri (`buildFalBody` `src/index.js`:ssä):** flux-mallit saavat
+`image_size`:n (mapattu kuvasuhteesta), nano-banana-perhe saa `aspect_ratio`:n
+suoraan (`16:9`,`1:1`,`9:16`,`4:3`,`3:4`). nano-banana-pro lisää `resolution:"2K"`
+(1K/2K/4K; 4K = tuplahinta). Uuden mallin lisäys: täydennä `MODELS` + tarvittaessa
+`buildFalBody`.
+
+> **Huom nano-banana-pro:** kaikkiin kuviin tulee SynthID-digitaalivesileima ja
+> näkyvä vesileima ei-Ultra-tilauksilla. Tarkista fal-tilisi taso jos näkyvä
+> vesileima haittaa.
 
 ## Turvallisuus
 

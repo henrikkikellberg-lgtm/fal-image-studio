@@ -1,5 +1,5 @@
 // fal.ai Image Studio — Cloudflare Worker
-// v1.0.0
+// v1.1.0 — lisätty nano-banana + nano-banana-pro (per-malli parametriadapteri)
 //
 // GET  /               → HTML-käyttöliittymä (prompti, kuvasuhde, malli)
 // POST /api/generate   → proxy fal.ai:hin (bearer-token-suojattu). Body: {prompt, aspect, model, project?}
@@ -20,8 +20,25 @@ const IMAGE_SIZE = {
 const MODELS = {
   "fal-ai/flux/schnell": "Nopea & halpa (~0,003 $)",
   "fal-ai/flux/dev": "Tasapaino (~0,025 $)",
-  "fal-ai/flux-pro/v1.1": "Paras laatu (~0,04 $)",
+  "fal-ai/flux-pro/v1.1": "Flux Pro (~0,04 $)",
+  "fal-ai/nano-banana": "Nano Banana (~0,04 $)",
+  "fal-ai/nano-banana-pro": "Paras laatu — Nano Banana Pro (~0,15 $)",
 };
+
+// nano-banana-perhe käyttää aspect_ratio-parametria, flux käyttää image_size.
+function isNano(model) {
+  return model.indexOf("nano-banana") !== -1;
+}
+
+// Rakentaa fal.ai-pyynnön rungon mallin mukaan.
+function buildFalBody(model, prompt, aspect) {
+  if (isNano(model)) {
+    const b = { prompt, aspect_ratio: aspect || "16:9", num_images: 1 };
+    if (model === "fal-ai/nano-banana-pro") b.resolution = "2K"; // 1K/2K/4K (4K = tuplahinta)
+    return b;
+  }
+  return { prompt, image_size: IMAGE_SIZE[aspect] || "landscape_16_9", num_images: 1 };
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -64,7 +81,7 @@ export default {
       if (!prompt) return json({ error: "Prompti puuttuu" }, 400);
 
       const model = MODELS[body.model] ? body.model : "fal-ai/flux/schnell";
-      const size = IMAGE_SIZE[body.aspect] || "landscape_16_9";
+      const aspect = body.aspect || "16:9";
 
       try {
         const falRes = await fetch("https://fal.run/" + model, {
@@ -73,11 +90,7 @@ export default {
             "Authorization": "Key " + env.FAL_KEY,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            prompt,
-            image_size: size,
-            num_images: 1,
-          }),
+          body: JSON.stringify(buildFalBody(model, prompt, aspect)),
         });
 
         const data = await falRes.json();
@@ -89,10 +102,10 @@ export default {
 
         return json({
           url: img.url,
-          width: img.width,
-          height: img.height,
+          width: img.width || null,
+          height: img.height || null,
           model,
-          size,
+          aspect,
         });
       } catch (e) {
         return json({ error: "Kutsu fal.ai:hin epäonnistui: " + e.message }, 502);
@@ -194,9 +207,11 @@ const PAGE = `<!DOCTYPE html>
     <div style="height:14px"></div>
     <label>Malli / laatu</label>
     <select id="model">
-      <option value="fal-ai/flux/schnell">Nopea & halpa (~0,003 $)</option>
-      <option value="fal-ai/flux/dev">Tasapaino (~0,025 $)</option>
-      <option value="fal-ai/flux-pro/v1.1">Paras laatu (~0,04 $)</option>
+      <option value="fal-ai/nano-banana-pro">Paras laatu — Nano Banana Pro (~0,15 $)</option>
+      <option value="fal-ai/flux-pro/v1.1">Flux Pro (~0,04 $)</option>
+      <option value="fal-ai/nano-banana">Nano Banana (~0,04 $)</option>
+      <option value="fal-ai/flux/dev">Flux dev — tasapaino (~0,025 $)</option>
+      <option value="fal-ai/flux/schnell">Flux schnell — nopea & halpa (~0,003 $)</option>
     </select>
 
     <button class="go" id="go" onclick="gen()">✨ Generoi kuva</button>
@@ -265,9 +280,10 @@ const PAGE = `<!DOCTYPE html>
       var proj = document.getElementById("project").value.trim() || "kuva";
       var safe = proj.replace(/[^\\w.-]/g, "_").slice(0, 40);
       var dl = "/api/download?url=" + encodeURIComponent(j.url) + "&name=" + encodeURIComponent(safe) + "&t=" + encodeURIComponent(tok());
+      var dims = (j.width && j.height) ? (j.width + '×' + j.height + ' · ') : (j.aspect + ' · ');
       out.innerHTML = '<img src="' + j.url + '" alt="tulos">' +
         '<div><a class="dl" href="' + dl + '">⬇ Lataa kuva</a></div>' +
-        '<p class="mut" style="margin-top:8px">' + j.width + '×' + j.height + ' · ' + j.model + '</p>';
+        '<p class="mut" style="margin-top:8px">' + dims + j.model + '</p>';
     } catch (e) {
       out.innerHTML = "";
       outcard.style.display = "none";
