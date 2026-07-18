@@ -1,4 +1,5 @@
 // fal.ai Image Studio — Cloudflare Worker
+// v1.2.0 — kuvasta-kuvaksi (edit/style transfer) imageUrls-parametrilla
 // v1.1.0 — lisätty nano-banana + nano-banana-pro (per-malli parametriadapteri)
 //
 // GET  /               → HTML-käyttöliittymä (prompti, kuvasuhde, malli)
@@ -30,14 +31,30 @@ function isNano(model) {
   return model.indexOf("nano-banana") !== -1;
 }
 
-// Rakentaa fal.ai-pyynnön rungon mallin mukaan.
-function buildFalBody(model, prompt, aspect) {
+// Rakentaa fal.ai-pyynnön: endpoint + body. Jos imageUrls annettu → kuvasta-kuvaksi
+// (edit / style transfer) nano-bananan /edit-endpointilla. image_urls hyväksyy sekä
+// julkisen URLin että base64 data-URIn.
+function buildFalRequest(model, prompt, aspect, imageUrls) {
+  const hasImg = Array.isArray(imageUrls) && imageUrls.length > 0;
+
+  if (hasImg) {
+    // Edit-moodi tukee vain nano-banana-perhettä; flux-valinta ohjataan nano-banana-pro/editiin.
+    const editModel = isNano(model) ? model + "/edit" : "fal-ai/nano-banana-pro/edit";
+    return {
+      endpoint: editModel,
+      body: { prompt, image_urls: imageUrls, aspect_ratio: aspect || "auto", num_images: 1 },
+    };
+  }
+
   if (isNano(model)) {
     const b = { prompt, aspect_ratio: aspect || "16:9", num_images: 1 };
     if (model === "fal-ai/nano-banana-pro") b.resolution = "2K"; // 1K/2K/4K (4K = tuplahinta)
-    return b;
+    return { endpoint: model, body: b };
   }
-  return { prompt, image_size: IMAGE_SIZE[aspect] || "landscape_16_9", num_images: 1 };
+  return {
+    endpoint: model,
+    body: { prompt, image_size: IMAGE_SIZE[aspect] || "landscape_16_9", num_images: 1 },
+  };
 }
 
 function json(data, status = 200) {
@@ -82,15 +99,17 @@ export default {
 
       const model = MODELS[body.model] ? body.model : "fal-ai/flux/schnell";
       const aspect = body.aspect || "16:9";
+      const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls.filter(Boolean) : [];
+      const req = buildFalRequest(model, prompt, aspect, imageUrls);
 
       try {
-        const falRes = await fetch("https://fal.run/" + model, {
+        const falRes = await fetch("https://fal.run/" + req.endpoint, {
           method: "POST",
           headers: {
             "Authorization": "Key " + env.FAL_KEY,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(buildFalBody(model, prompt, aspect)),
+          body: JSON.stringify(req.body),
         });
 
         const data = await falRes.json();
@@ -104,7 +123,7 @@ export default {
           url: img.url,
           width: img.width || null,
           height: img.height || null,
-          model,
+          model: req.endpoint,
           aspect,
         });
       } catch (e) {
